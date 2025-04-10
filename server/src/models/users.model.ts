@@ -8,8 +8,6 @@ export interface IUser extends Document {
       publicId: string;
       url: string;
     };
-    createdAt: Date;
-    updatedAt: Date;
 }
 
 const userSchema = new mongoose.Schema<IUser> (
@@ -23,10 +21,21 @@ const userSchema = new mongoose.Schema<IUser> (
             type: String,
             required: true,
             lowercase : true,
+            unique : true
         },
         password: {
             type: String,
         },
+        avatar : {
+            publicId : {
+                type : String,
+                default : "ping-park"
+            },
+            url : {
+                type : String,
+                default : "https://res.cloudinary.com/arshitcc/image/upload/v1744284070/ping-park.png"
+            }
+        }
     },
     {
         timestamps: true,

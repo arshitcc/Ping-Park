@@ -7,7 +7,7 @@ type File = {
     resource_type : string;
 }
 
-type Message = {
+type MediaMessage = {
     caption : string;
     file : File
 }
@@ -16,23 +16,22 @@ type FileMessage = {
     file : File
 }
 
-type MessageContent = string | Message | FileMessage;
+type MessageContent = string | MediaMessage | FileMessage;
 
-export interface IMessage extends Document {
-    sender : mongoose.Types.ObjectId;
-    receiver : mongoose.Types.ObjectId;
+export interface IMessage {
+    _id : mongoose.Types.ObjectId;
+    senderId : mongoose.Types.ObjectId;
     message : MessageContent;
+    chatId : mongoose.Types.ObjectId;
     createdAt : Date;
     updatedAt : Date;
+    readBy? : mongoose.Types.ObjectId[];
+    seenBy? : mongoose.Types.ObjectId[];
 }
 
 const messageSchema = new mongoose.Schema<IMessage>(
     {
-        sender : {
-            type : mongoose.Schema.Types.ObjectId,
-            ref : 'User'
-        },
-        receiver : {
+        senderId : {
             type : mongoose.Schema.Types.ObjectId,
             ref : 'User'
         },
@@ -40,7 +39,7 @@ const messageSchema = new mongoose.Schema<IMessage>(
             type : mongoose.Schema.Types.Mixed,
             required : true,
             validate : {
-                validator : function (value : string | Message | FileMessage) {
+                validator : function (value : MessageContent) {
                     if(typeof value === 'string') return value.trim().length > 0;
                     else if(typeof value === "object"){
                         if('caption' in value) {
@@ -67,11 +66,27 @@ const messageSchema = new mongoose.Schema<IMessage>(
                 }
             },
             // This is a setter function for fields, whenever inserting in the document this will run.
-            set : function (value : string | Message | FileMessage) {
+            set : function (value : MessageContent) {
                 if(typeof value === 'string') return value.trim();
                 return value;
             }
         },
+        chatId : {
+            type : mongoose.Schema.Types.ObjectId,
+            ref : 'Chat'
+        },
+        readBy : [
+            {
+                type : mongoose.Schema.Types.ObjectId,
+                ref : 'User'
+            }
+        ],
+        seenBy : [
+            {
+                type : mongoose.Schema.Types.ObjectId,
+                ref : 'User'
+            }
+        ]
     },
     {
         timestamps : true
