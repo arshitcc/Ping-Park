@@ -1,6 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
-import { ApiError } from "./ApiError";
+import { ApiResponse } from "./ApiResponse";
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, CLOUDINARY_FOLDER_NAME } from "./env";   
 
 cloudinary.config({
@@ -16,10 +16,10 @@ const uploadFile = async(filePath: string) => {
             resource_type : "auto",
         });
         fs.unlinkSync(filePath);
-        return response.url;
+        return response;
     } catch (error:any) {
         fs.unlinkSync(filePath);
-        throw new ApiError(false, 500, "Failed to upload file to cloudinary");
+        throw new ApiResponse(false, 500, "Failed to upload file to cloudinary");
     }
 }
 
@@ -27,7 +27,7 @@ const deleteFile = async(fileId: string, resource_type : string) => {
     try {
         const publicId = fileId;
         if(!publicId.trim() || !resource_type.trim()){
-            throw new ApiError(false, 400, "Invalid or Empty FileId or ResourceType");
+            throw new ApiResponse(false, 400, "Invalid or Empty FileId or ResourceType");
         }
         if(publicId && resource_type){
             const resposne =  await cloudinary.uploader.destroy(publicId,{ resource_type });
@@ -35,7 +35,7 @@ const deleteFile = async(fileId: string, resource_type : string) => {
         }
         else return false;
     } catch (error) {
-        throw new ApiError(false, 500, "Failed to delete file from cloudinary");
+        throw new ApiResponse(false, 500, "Failed to delete file from cloudinary");
     }
 }
 

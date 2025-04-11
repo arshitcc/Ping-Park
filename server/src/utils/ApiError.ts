@@ -1,6 +1,5 @@
 class ApiError extends Error {
   constructor(
-    public success: boolean,
     public statusCode: number,
     public message: string,
     public errors?: any[],
