@@ -22,7 +22,7 @@ const port = PORT || 6900;
 connectDB()
   .then(() => {
     app.listen(port, () => {
-      console.log(`DB Connection Successful : ${port}`);
+      console.log(`Server is running at : ${port}`);
     });
   })
   .catch((err) => {
@@ -42,6 +42,14 @@ if (NODE_ENV === "production") {
     res.send(`Server-API is running`);
   });
 }
+
+
+import userRoutes from "./routes/users.routes";
+
+
+
+
+app.use("/api/v1/users", userRoutes);
 
 
 
