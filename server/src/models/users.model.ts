@@ -72,7 +72,7 @@ userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
         { _id : this._id },
         ACCESS_TOKEN_SECRET!,
-        { expiresIn: parseInt(ACCESS_TOKEN_EXPIRY!) }
+        { expiresIn: eval(ACCESS_TOKEN_EXPIRY!) }
     );
   }
 
@@ -80,7 +80,7 @@ userSchema.methods.generateRefreshToken = function () {
     return jwt.sign(
       { _id: this._id },
       REFRESH_TOKEN_SECRET!,
-      { expiresIn: parseInt(REFRESH_TOKEN_EXPIRY!) }
+      { expiresIn: eval(REFRESH_TOKEN_EXPIRY!)  }
     );
   };
 
