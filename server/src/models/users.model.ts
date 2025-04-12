@@ -4,18 +4,23 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { ACCESS_TOKEN_EXPIRY, ACCESS_TOKEN_SECRET, REFRESH_TOKEN_EXPIRY, REFRESH_TOKEN_SECRET } from "../utils/env";
 
+export interface Avatar{
+    publicId: string;
+    url: string;
+};
+
 export interface IUser extends Document {
+    _id : string;
     name: string;
     email: string;
     password: string;
-    avatar: {
-      publicId: string;
-      url: string;
-    };
+    avatar: Avatar;
     refreshToken : string;
     validatePassword : (password : string) => boolean;
     generateAccessToken : () => string;
     generateRefreshToken : () => string;
+    createdAt : Date;
+    updatedAt : Date;
 }
 
 export interface CustomRequest extends Request{

@@ -5,6 +5,8 @@ import connectDB from "./db/db";
 import logger from "./utils/logger";
 import cors from "cors"
 import cookieParser from 'cookie-parser';
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 const app = express();
 
@@ -16,6 +18,17 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended : true}));
 app.use(cookieParser());
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  pingTimeout: 60000,
+  cors: {
+    origin: process.env.CORS_ORIGIN,
+    credentials: true,
+  },
+});
+
+app.set("io", io); // With this we can access socket.io in our routes with req,res,...
 
 const port = PORT || 6900;
 
