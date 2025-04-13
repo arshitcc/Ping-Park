@@ -1,4 +1,4 @@
-import mongoose, { isValidObjectId } from "mongoose";
+import mongoose, { isValidObjectId, ObjectId } from "mongoose";
 import { ChatEvents } from "../constants";
 import { CustomRequest } from "../models/users.model";
 import Chat, { IChat } from "../models/chats.model";
@@ -7,8 +7,8 @@ import { ApiResponse } from "../utils/ApiResponse";
 import { asyncHandler } from "../utils/asyncHandler";
 import { emitSocket } from "../socket";
 import { Response } from "express";
-import { uploadFile } from "../utils/cloudinary";
-import fs from "fs";
+import { deleteFile, uploadFile } from "../utils/cloudinary";
+import Message, { IMessage } from "../models/messages.model";
 
 
 const chatCommonAggregation = () => {
@@ -104,9 +104,6 @@ const validateGroupChat = async(req : CustomRequest) => {
 }   
 
 const validateSingleChat = async (req : CustomRequest) => {
-
-    const junkPhoto = req.file?.path || "";
-    if(junkPhoto.trim()) fs.unlinkSync(junkPhoto.trim());
     
     const { participantIds, isGroupChat } : IChat = JSON.parse(req.body.chatData);
 
@@ -130,6 +127,22 @@ const validateSingleChat = async (req : CustomRequest) => {
     return { isGroupChat, participantIds : members};
 
 }   
+
+const deleteChatAssets = async(chat : IChat) => {
+  try {
+    const messages : IMessage[] = await Message.find({ chatId: chat._id });
+
+    for(const message of messages){
+      await Message.findByIdAndDelete(message._id);
+      if(typeof message.message!=="string") await deleteFile(message.message.file.publicId, message.message.file.resource_type);
+    }
+    
+    if(chat.avatar) await deleteFile(chat.avatar.publicId, "image");
+  } catch (error) {
+    console.log(error);
+    throw new ApiError(500, "Failed to delete chat assets"); 
+  }
+}
 
 const createChat = asyncHandler( async(req : CustomRequest, res : Response) => {
 
@@ -172,8 +185,73 @@ const createChat = asyncHandler( async(req : CustomRequest, res : Response) => {
     });
 
     return res.status(201).json(new ApiResponse(true, 200, "Chat Created Successfully", payload, []));
-})
+});
+
+const getMyChats = asyncHandler( async(req : CustomRequest, res : Response) => {
+
+    const chats = await Chat.aggregate([
+      {
+        $match: {
+          participantIds: req.user._id,
+        },
+      },
+      {
+        $sort : {
+          updatedAt : -1
+        }
+      },
+      ...chatCommonAggregation(),
+    ]);
+
+    return res.status(200).json(new ApiResponse(true, 200, "Chats Fetched Successfully", chats, []));
+});
+
+const deleteChat = asyncHandler( async(req : CustomRequest, res : Response) => {
+
+    const { chatId } = req.params;
+
+    if(!isValidObjectId(chatId)){
+      throw new ApiError(400, "Invalid ChatId");
+    }
+
+    const myChat: IChat[] = await Chat.aggregate([
+      {
+        $match : {
+          _id : new mongoose.Types.ObjectId(chatId)
+        }
+      },
+      ...chatCommonAggregation()
+    ]);
+
+    if(!myChat.length){
+        throw new ApiError(404, "Chat not found");
+    }
+    
+    const chat = myChat[0];
+
+    if(chat.admin && chat.admin.toString() !== req.user._id.toString()){
+      throw new ApiError(403, "You are not authorized to delete this chat");
+    }
+
+    if (!chat.participantIds?.some(id => id.toString() === req.user._id.toString())) {
+      throw new ApiError(403, "You are not authorized to delete this chat");
+    }
+
+    await deleteChatAssets(chat);
+    await Chat.findByIdAndDelete(chatId);
+
+    chat?.participantIds?.forEach((participantId) => {
+      if (participantId.toString() === req.user._id.toString()) return; 
+      emitSocket( req, participantId?.toString(), ChatEvents.LEAVE_CHAT_EVENT, chat);
+    });
+  
+    return res
+      .status(200)
+      .json(new ApiResponse(true, 200, "Group chat deleted successfully", {}, []));
+});
 
 export {
     createChat,
+    getMyChats,
+    deleteChat,
 }

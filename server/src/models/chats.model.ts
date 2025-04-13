@@ -11,7 +11,7 @@ export interface IChat extends Document  {
     latestMessageId? : mongoose.Types.ObjectId;
     latestMessage? : IMessage;
     participants? : IUser[];
-    messages? : mongoose.Types.ObjectId[];
+    messages : IMessage[];
     admin? : mongoose.Types.ObjectId;
     avatar? : Avatar;
     createdAt : Date;
