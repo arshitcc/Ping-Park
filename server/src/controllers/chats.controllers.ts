@@ -133,10 +133,10 @@ const deleteChatAssets = async(chat : IChat) => {
     const messages : IMessage[] = await Message.find({ chatId: chat._id });
 
     for(const message of messages){
-      await Message.findByIdAndDelete(message._id);
       if(typeof message.message!=="string") await deleteFile(message.message.file.publicId, message.message.file.resource_type);
     }
-    
+
+    await Message.deleteMany({ chatId : chat._id });
     if(chat.avatar) await deleteFile(chat.avatar.publicId, "image");
   } catch (error) {
     console.log(error);
