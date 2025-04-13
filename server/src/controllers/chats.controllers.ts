@@ -1,4 +1,4 @@
-import { isValidObjectId } from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 import { ChatEvents } from "../constants";
 import { CustomRequest } from "../models/users.model";
 import Chat, { IChat } from "../models/chats.model";
@@ -8,6 +8,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { emitSocket } from "../socket";
 import { Response } from "express";
 import { uploadFile } from "../utils/cloudinary";
+import fs from "fs";
 
 
 const chatCommonAggregation = () => {
@@ -71,7 +72,7 @@ const chatCommonAggregation = () => {
 
 const validateGroupChat = async(req : CustomRequest) => {
     
-    const { participantIds, isGroupChat, chatName } : IChat = req.body;
+    const { participantIds, isGroupChat, chatName } : IChat = JSON.parse(req.body.chatData);
 
     if(!chatName?.trim()){
         throw new ApiError(400, "Group Name is required");
@@ -82,7 +83,7 @@ const validateGroupChat = async(req : CustomRequest) => {
     }
 
     if(participantIds.length<2){
-        throw new ApiError(400, "Participants cannot be more than 1 for single chat");
+        throw new ApiError(400, "Participants cannot be less than 2 for group chat");
     }
 
     const members = [...new Set([...participantIds, req.user._id])];
@@ -100,12 +101,14 @@ const validateGroupChat = async(req : CustomRequest) => {
     if(!avatar) return newChat;
     return {...newChat, avatar : {publicId : avatar.public_id, url : avatar.url}};
 
-}
+}   
+
+const validateSingleChat = async (req : CustomRequest) => {
+
+    const junkPhoto = req.file?.path || "";
+    if(junkPhoto.trim()) fs.unlinkSync(junkPhoto.trim());
     
-
-const validateSingleChat = (req : CustomRequest) => {
-
-    const { participantIds, isGroupChat } : IChat = req.body;
+    const { participantIds, isGroupChat } : IChat = JSON.parse(req.body.chatData);
 
     if(!participantIds){
         throw new ApiError(400, "Participants are required");
@@ -115,27 +118,36 @@ const validateSingleChat = (req : CustomRequest) => {
         throw new ApiError(400, "Participants cannot be more than 1 for single chat");
     }
 
+    const existingChat = await Chat.find({
+      participantIds : [...participantIds, req.user._id.toString()]
+    })
+    
+    if(existingChat.length){
+        throw new ApiError(400, "Chat already exists");
+    }
+
     let members = [...participantIds, req.user._id];
     return { isGroupChat, participantIds : members};
 
 }   
 
 const createChat = asyncHandler( async(req : CustomRequest, res : Response) => {
-    const { participantIds, isGroupChat,  } : IChat = req.body;
+
+    const { participantIds, isGroupChat } : IChat = JSON.parse(req.body.chatData);
 
     if(!participantIds || !participantIds.length){
         throw new ApiError(400, "Participants are required");
     }
 
-    if(participantIds.includes(req.user._id)){
-        throw new ApiError(400, "Participants array should not contain the group creator");
+    if(participantIds.includes(req.user._id.toString())){
+        throw new ApiError(400, "Participants should not contain the group creator");
     }
 
     if(participantIds.some((id) => !isValidObjectId(id))){
         throw new ApiError(400, "Invalid Participant Ids");
     }
 
-    let newChat = isGroupChat? validateGroupChat(req) : validateSingleChat(req);
+    let newChat = isGroupChat? await validateGroupChat(req) : await validateSingleChat(req);
 
     const groupChat = await Chat.create(newChat);
 
@@ -159,7 +171,7 @@ const createChat = asyncHandler( async(req : CustomRequest, res : Response) => {
         emitSocket(req, participant._id?.toString(),ChatEvents.NEW_CHAT_EVENT, payload);
     });
 
-    return res.status(201).json(new ApiResponse(true, 200, "Group Created Successfully", payload, []));
+    return res.status(201).json(new ApiResponse(true, 200, "Chat Created Successfully", payload, []));
 })
 
 export {
