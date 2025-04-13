@@ -50,14 +50,8 @@ const chatSchema = new mongoose.Schema<IChat>(
             ref : 'User'
         },
         avatar : {
-            publicId : {
-                type : String,
-                default : "ping-park"
-            },
-            url : {
-                type : String,
-                default : "https://res.cloudinary.com/arshitcc/image/upload/v1744499657/ping-park-group.png"
-            }
+            publicId : String,
+            url : String
         },
     },
     {

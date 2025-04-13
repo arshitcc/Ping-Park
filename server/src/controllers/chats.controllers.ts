@@ -98,7 +98,7 @@ const validateGroupChat = async(req : CustomRequest) => {
     let avatar = null;
     if(groupPhoto.trim()) avatar = await uploadFile(groupPhoto);
 
-    if(!avatar) return newChat;
+    if(!avatar) return {...newChat, avatar : {publicId : "ping-park", url : "https://res.cloudinary.com/arshitcc/image/upload/v1744499657/ping-park-group.png"}};
     return {...newChat, avatar : {publicId : avatar.public_id, url : avatar.url}};
 
 }   
