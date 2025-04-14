@@ -1,6 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiResponse } from "../utils/ApiResponse";
-import User, { CustomRequest } from "../models/users.model";
+import User, { CustomRequest, IUser } from "../models/users.model";
 import { CookieOptions, Request, Response } from "express";
 import { generateTokens } from "../utils/generateTokens";
 import bcrypt from "bcryptjs";
@@ -176,5 +176,27 @@ const changeAvatar = asyncHandler(async (req : CustomRequest, res : Response) =>
     
 });
 
+const getUsers = asyncHandler( async(req : CustomRequest, res : Response) => {
 
-export { signup, login, changePassword, changeAvatar };
+    const users : IUser[] = await User.aggregate([
+        {
+            $match: {
+                _id: {
+                    $ne: req.user._id,
+                },
+            },
+        },
+        {
+            $project: {
+                _id: 1,
+                name: 1,
+                email: 1,
+                avatar: 1,
+            },
+        },
+    ]);
+
+    return res.status(200).json(new ApiResponse(true, 200, "Users found successfully", users, []));
+});
+
+export { signup, login, changePassword, changeAvatar, getUsers };
