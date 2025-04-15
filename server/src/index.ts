@@ -59,12 +59,13 @@ if (NODE_ENV === "production") {
 
 import userRoutes from "./routes/users.routes";
 import chatRoutes from "./routes/chats.routes";
-
+import messageRoutes from "./routes/messages.routes";
 
 
 
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/chats", chatRoutes);
+app.use("/api/v1/messages", messageRoutes);
 
 
 

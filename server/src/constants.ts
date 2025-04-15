@@ -7,4 +7,6 @@ export const ChatEvents = Object.freeze({
   SOCKET_ERROR_EVENT: "socketError",
   UPDATE_GROUP_AVATAR_EVENT: "updateGroupAvatar",
   UPDATE_GROUP_NAME_EVENT: "updateGroupName",
+  MESSAGE_RECEIVED_EVENT: "messageReceived",
+  MESSAGE_DELETE_EVENT : "messageDeleted",
 });

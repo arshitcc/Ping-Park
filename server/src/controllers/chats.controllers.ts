@@ -11,7 +11,7 @@ import { deleteFile, uploadFile } from "../utils/cloudinary";
 import Message, { IMessage } from "../models/messages.model";
 
 
-const chatCommonAggregation = () => {
+export const chatCommonAggregation = () => {
     return [
       {
         $lookup: {
