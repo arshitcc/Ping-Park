@@ -1,6 +1,6 @@
-import mongoose, { isValidObjectId, ObjectId } from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 import { ChatEvents } from "../constants";
-import { CustomRequest } from "../models/users.model";
+import User, { CustomRequest } from "../models/users.model";
 import Chat, { IChat } from "../models/chats.model";
 import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
@@ -250,8 +250,316 @@ const deleteChat = asyncHandler( async(req : CustomRequest, res : Response) => {
       .json(new ApiResponse(true, 200, "Group chat deleted successfully", {}, []));
 });
 
+const updateGroupChatAvatar = asyncHandler( async(req : CustomRequest, res : Response) => {
+
+  const { chatId } = req.params;
+
+  if(!isValidObjectId(chatId)){
+    throw new ApiError(400, "Invalid ChatId");
+  }
+
+  if(!req.file?.path){
+    throw new ApiError(400, "Chat avatar is required");
+  }
+
+  const chatAvatar = await uploadFile(req.file.path);
+
+  if(!chatAvatar){
+    throw new ApiError(500, "Failed to upload chat avatar");
+  }
+
+  const updatedChat : IChat|null = await Chat.findOneAndUpdate(
+    {
+      _id : new mongoose.Types.ObjectId(chatId),
+      isGroupChat : true,
+      admin : req.user._id,
+      participantIds : req.user._id, // useless but still just for more safety
+    }, 
+    {
+      $set : {
+        avatar : {
+          publicId : chatAvatar.public_id,
+          url : chatAvatar.url
+        }
+      }
+    }
+  );
+
+  if(!updatedChat){
+    await deleteFile(chatAvatar.public_id, "image");
+    throw new ApiError(400, "Unable to update chat");
+  }
+
+  updatedChat.avatar && await deleteFile(updatedChat.avatar.publicId, "image");
+
+  updatedChat.participantIds?.map((participantId) => {
+    emitSocket( req, participantId?.toString(), ChatEvents.UPDATE_GROUP_AVATAR_EVENT, updatedChat);
+  });
+
+  return res.status(200).json(new ApiResponse(true, 200, "Chat avatar updated successfully", updatedChat, []));
+
+});
+
+const updateGroupChatName = asyncHandler( async(req : CustomRequest, res : Response) => {
+
+  const { chatId } = req.params;
+
+  if(!isValidObjectId(chatId)){
+    throw new ApiError(400, "Invalid ChatId");
+  }
+
+  const { chatName } : IChat = req.body;
+
+  if(!chatName?.trim()){
+    throw new ApiError(400, "Chat name is required");
+  }
+
+  const updatedChat = await Chat.findOneAndUpdate(
+    {
+      _id : new mongoose.Types.ObjectId(chatId),
+      isGroupChat : true,
+      admin : req.user._id,
+      participantIds : req.user._id,
+    },
+    {
+      $set : {
+        chatName
+      }
+    },
+    {
+      new : true
+    }
+  );
+
+  if(!updatedChat){
+    throw new ApiError(400, "Unable to update chat");
+  }
+
+  const myChat : IChat[] = await Chat.aggregate([
+    {
+      $match: {
+        _id: updatedChat._id,
+      },
+    },
+    ...chatCommonAggregation(),
+  ]);
+
+
+  const chat = myChat[0];
+
+  if (!chat) {
+    throw new ApiError(500, "Internal server error");
+  }
+
+  chat?.participantIds?.forEach((participantId) => {
+    if (participantId.toString() === req.user._id.toString()) return;
+    emitSocket(req, participantId.toString(),ChatEvents.UPDATE_GROUP_NAME_EVENT, chat);
+  });
+
+  return res.status(200).json(new ApiResponse(true, 200, "Group chat renamed successfully", chat, []));
+});
+
+const addNewParticipantsToGroupChat = asyncHandler( async(req : CustomRequest, res : Response) => {
+
+  const { chatId } = req.params;
+  const { newParticipantIds } = req.body;
+
+  if([chatId, ...newParticipantIds].some((field)=>!isValidObjectId(field))){
+    throw new ApiError(400, "Invalid ChatId");
+  }
+
+  const participants = newParticipantIds.map((participantId : string) => new mongoose.Types.ObjectId(participantId));
+
+  const updatedChat = await Chat.findOneAndUpdate(
+    {
+      _id : new mongoose.Types.ObjectId(chatId),
+      isGroupChat : true,
+      admin : req.user._id,
+      participantIds : {
+        $all : [req.user._id],
+        $nin : participants
+      }
+    },
+    {
+      $addToSet : {
+        participantIds : {
+          $each : participants
+        }
+      }
+    },
+    {
+      new : true
+    }
+  );
+
+  if(!updatedChat){
+    throw new ApiError(404, "Chat not found");
+  }
+
+  const myChat : IChat[] = await Chat.aggregate([
+    {
+      $match : {
+        _id : updatedChat._id
+      }
+    },
+    ...chatCommonAggregation()
+  ]);
+
+  if(!myChat.length){
+    throw new ApiError(500, "Internal server error");
+  }
+
+  const chat = myChat[0];
+
+  newParticipantIds.forEach((participantId : string) => {
+    emitSocket(req, participantId, ChatEvents.NEW_CHAT_EVENT, chat);
+  });
+
+  return res.status(200).json(new ApiResponse(true, 200, "Participants added successfully", chat, []));
+});
+
+const removeParticipantsFromGroupChat = asyncHandler( async(req : CustomRequest, res : Response) => {
+
+  const { chatId } = req.params;
+  const { removeParticipantIds } = req.body;
+
+  if(!removeParticipantIds?.length){
+    throw new ApiError(400, "ParticipantIds are required");
+  }
+
+  if([chatId, ...removeParticipantIds].some((field) => !isValidObjectId(field))){
+    throw new ApiError(400, "Invalid ChatId or NewParticipantId");
+  }
+
+  const participantIds = removeParticipantIds.map((participantId : string) => new mongoose.Types.ObjectId(participantId));
+
+  const updatedChat = await Chat.findOneAndUpdate(
+    {
+      _id : new mongoose.Types.ObjectId(chatId),
+      isGroupChat : true,
+      admin : req.user._id,
+      participantIds : {
+        $all : [req.user._id, ...participantIds]
+      }
+    },
+    {
+      $pullAll : {
+        participantIds : participantIds
+      }
+    },
+    {
+      new : true
+    }
+  );
+
+  if(!updatedChat){
+    throw new ApiError(404, "Chat not found");
+  }
+
+  const myChat : IChat[] = await Chat.aggregate([
+    {
+      $match: {
+        _id: updatedChat._id,
+      },
+    },
+    ...chatCommonAggregation(),
+  ]);
+
+  if(!myChat.length){
+    throw new ApiError(500, "Internal server error");
+  }
+
+  const chat = myChat[0];
+
+  removeParticipantIds.forEach((participantId : string) => {
+    emitSocket(req, participantId, ChatEvents.LEAVE_CHAT_EVENT, chat);
+  });
+
+  return res.status(200).json(new ApiResponse(true, 200, "Group chat updated successfully", chat, []));
+});
+
+const leaveFromGroupChat = asyncHandler( async(req : CustomRequest, res : Response) => {
+
+  const { chatId } = req.params;
+
+  if(!isValidObjectId(chatId)){
+    throw new ApiError(400, "Invalid ChatId");
+  }
+
+  const updatedChat = await Chat.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(chatId),
+      isGroupChat: true,
+      participantIds: req.user._id,
+    },
+    {
+      $pullAll: { participantIds: [req.user._id] },
+    },
+    {
+      new: true,
+    }
+  );
+
+  if (!updatedChat) {
+    throw new ApiError(400, "Unable to update chat");
+  }
+
+  const myChat : IChat[] = await Chat.aggregate([
+    {
+      $match: {
+        _id: updatedChat._id,
+      },
+    },
+    ...chatCommonAggregation(),
+  ]);
+
+  if(!myChat.length){
+    throw new ApiError(500, "Internal server error");
+  }
+
+  const chat = myChat[0];
+
+  chat?.participantIds?.forEach((participantId) => {
+    emitSocket(req, participantId.toString(),ChatEvents.LEAVE_CHAT_EVENT, chat);
+  });
+
+  return res.status(200).json(new ApiResponse(true, 200, "Group chat updated successfully", chat, []));
+});
+
+const getGroupChat = asyncHandler( async(req : CustomRequest, res : Response) => {
+
+  const { chatId } = req.params;
+
+  if(!isValidObjectId(chatId)){
+    throw new ApiError(400, "Invalid ChatId");
+  }
+
+  const myChat : IChat[] = await Chat.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(chatId),
+        isGroupChat: true,
+        participantIds: req.user._id,
+      },
+    },
+    ...chatCommonAggregation(),
+  ]);
+
+  if(!myChat.length){
+    throw new ApiError(500, "Internal server error");
+  }
+
+  return res.status(200).json(new ApiResponse(true, 200, "Group chat found successfully", myChat[0], []));
+});
+
 export {
     createChat,
     getMyChats,
     deleteChat,
+    updateGroupChatAvatar,
+    updateGroupChatName,
+    addNewParticipantsToGroupChat,
+    removeParticipantsFromGroupChat,
+    leaveFromGroupChat,
+    getGroupChat,
 }
