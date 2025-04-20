@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/context/QueryProvider";
+import { ErrorIcon, SuccessIcon } from "@/components/icons";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,7 +41,10 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               {children}
-              <Toaster/>
+              <Toaster icons={{
+                success : <SuccessIcon/>,
+                error : <ErrorIcon/>
+              }}/>
           </ThemeProvider>
         </QueryProvider>
       </body>

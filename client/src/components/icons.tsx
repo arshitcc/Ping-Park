@@ -1,0 +1,2 @@
+export const SuccessIcon = () => <img width="48" height="48" src="https://img.icons8.com/fluency/48/checkmark--v1.png" alt="checkmark--v1"/>
+export const ErrorIcon = () => <img width="48" height="48" src="https://img.icons8.com/color/48/cancel.png" alt="cancel"/>
