@@ -10,13 +10,13 @@ const signup = asyncHandler(async (req : Request, res: Response) => {
     const { name, email, password } = req.body;
 
     if([name, email, password].some((field) => !field.trim())){
-        throw new ApiResponse(false, 400, "All fields are required");
+        return res.status(400).json(new ApiResponse(false, 400, "All fields are required"));
     }
 
     const existingUser = await User.findOne({ email });
 
     if(existingUser){
-        throw new ApiResponse(false, 400, "User already exists");
+        return res.status(400).json(new ApiResponse(false, 400, "User already exists"));
     }
 
     const newUser = await User.create({ name, email, password });
@@ -38,17 +38,17 @@ const login = asyncHandler(async (req : Request, res: Response) => {
     const {email, password} = req.body;
 
     if([email, password].some((field) => !field.trim())){
-        throw new ApiResponse(false, 400, "All fields are required");
+        return res.status(400).json(new ApiResponse(false, 400, "All fields are required"));
     }
 
     const user = await User.findOne({email});
 
     if(!user){
-        throw new ApiResponse(false, 404, "User not found");
+        return res.status(400).json(new ApiResponse(false, 404, "User not found"));
     }
 
     if(!user.validatePassword(password)){
-        throw new ApiResponse(false, 401, "Wrong password");
+        return res.status(400).json(new ApiResponse(false, 401, "Wrong password"));
     }
 
     const { accessToken, refreshToken } = await generateTokens(user);
@@ -78,17 +78,17 @@ const changePassword = asyncHandler(async (req : CustomRequest, res : Response) 
     const { oldPassword, newPassword } = req.body;
 
     if([oldPassword, newPassword].some((field)=>!field.trim())){
-        throw new ApiResponse(false, 400, "All fields are required");
+        return res.status(400).json(new ApiResponse(false, 400, "All fields are required"));
     }
 
     const user = await User.findById(req.user._id);
 
     if(!user){
-        throw new ApiResponse(false, 404, "User not found");
+        return res.status(400).json(new ApiResponse(false, 404, "User not found"));
     }
 
     if(!user?.validatePassword(oldPassword)){
-        throw new ApiResponse(false, 401, "Wrong password");
+        return res.status(400).json(new ApiResponse(false, 401, "Wrong password"));
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -98,7 +98,7 @@ const changePassword = asyncHandler(async (req : CustomRequest, res : Response) 
     ).select("-password -refreshToken");
 
     if(!updatedUser){
-        throw new ApiResponse(false, 400, "Unable to update user");
+        return res.status(400).json(new ApiResponse(false, 400, "Unable to update user"));
     }
 
     return res.status(200)
@@ -118,13 +118,13 @@ const changeAvatar = asyncHandler(async (req : CustomRequest, res : Response) =>
     let new_profile_id = "";
     try {
         if(!req.file){
-            throw new ApiResponse(false, 400, "Profile photo is required");
+            return res.status(400).json(new ApiResponse(false, 400, "Profile photo is required"));
         }
     
         const profilePhotoPath = req.file?.path;
         
         if(!profilePhotoPath){
-            throw new ApiResponse(false, 400, "Profile photo is required");
+            return res.status(400).json(new ApiResponse(false, 400, "Profile photo is required"));
         }
     
         const profilePhoto = await uploadFile(profilePhotoPath);
@@ -147,7 +147,7 @@ const changeAvatar = asyncHandler(async (req : CustomRequest, res : Response) =>
         await deleteFile(old_profile_id, "image");
     
         if(!updatedUser){
-            throw new ApiResponse(false, 400, "Unable to update user");
+            return res.status(400).json(new ApiResponse(false, 400, "Unable to update user"));
         }
     
         return res.status(200)
