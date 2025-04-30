@@ -9,6 +9,16 @@ const nextConfig: NextConfig = {
         hostname: 'img.icons8.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'gravatar.com',
+        pathname: '/**',
+      },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/**"
+      }
     ],
   },
 };
