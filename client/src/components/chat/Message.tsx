@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import {
   DownloadCloudIcon,
   EllipsisIcon,
-  PaperclipIcon,
+  FileIcon,
   SquareArrowOutUpRightIcon,
   TrashIcon,
   XIcon,
@@ -21,7 +21,6 @@ interface MessageProps {
 }
 
 function Message({ message, isCurrentUserMessage, isGroupChat }: MessageProps) {
-  
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showMessageOptions, setShowMessageOptions] = useState(false);
 
@@ -64,7 +63,15 @@ function Message({ message, isCurrentUserMessage, isGroupChat }: MessageProps) {
         </div>
         <div
           onMouseLeave={() => setShowMessageOptions(false)}
-          className={`p-4 rounded-3xl flex flex-col cursor-pointer group text-white  ${isCurrentUserMessage ? " bg-green-600 font-medium dark:bg-green-700" : " bg-gray-800"} ${
+          className={`rounded-3xl flex flex-col ${
+            typeof message.message === "string"
+              ? "p-1 pt-2 gap-y-0"
+              : "p-2 gap-y-2"
+          } cursor-pointer group text-white ${
+            isCurrentUserMessage
+              ? "bg-[#045E54] font-medium dark:bg-[#045E54]"
+              : " bg-gray-800"
+          } ${
             isCurrentUserMessage
               ? "order-1 rounded-br-none"
               : "order-2 rounded-bl-none"
@@ -103,11 +110,11 @@ function Message({ message, isCurrentUserMessage, isGroupChat }: MessageProps) {
           {isGroupChat && !isCurrentUserMessage && <p>{message.sender.name}</p>}
 
           {typeof message.message === "string" ? (
-            <p className="text-sm">{message.message}</p>
+            <p className="text-md px-2 pt-1 flex justify-start">{message.message}</p>
           ) : message.message.file.url.includes(".png") ||
             message.message.file.url.includes(".jpg") ||
             message.message.file.url.includes(".jpeg") ? (
-            <div className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer">
+            <div className="group relative rounded-xl overflow-hidden cursor-pointer">
               <div className="absolute inset-0 z-20 flex justify-center items-center w-full gap-2 h-full bg-black/60 group-hover:opacity-100 opacity-0 transition-opacity ease-in-out duration-150">
                 <Button
                   className="cursor-pointer"
@@ -138,31 +145,48 @@ function Message({ message, isCurrentUserMessage, isGroupChat }: MessageProps) {
               />
             </div>
           ) : (
-            <div>
+            <div className="relative rounded-xl overflow-hidden flex justify-center p-0 group-hover:p-4">
               <div className="absolute inset-0 z-20 flex justify-center items-center w-full gap-2 h-full bg-black/60 group-hover:opacity-100 opacity-0 transition-opacity ease-in-out duration-150">
                 <Button>
                   <SquareArrowOutUpRightIcon />
                 </Button>
                 <Button>
-                  <Link href={message.message.file.url} download>
+                  <Link
+                    target="_blank"
+                    href={message.message.file.url}
+                    download
+                  >
                     <DownloadCloudIcon />
                   </Link>
                 </Button>
               </div>
+              <FileIcon className="h-[50px] w-[50px]" />
             </div>
           )}
 
-          <p
-            className={`mt-1.5 self-end text-[10px] inline-flex items-center ${
+          <div
+            className={`pt-1 w-full self-end text-sm flex items-center justify-between cursor-text ${
               isCurrentUserMessage ? "text-zinc-50" : "text-zinc-400"
             }`}
           >
             {typeof message.message !== "string" ? (
-              <PaperclipIcon className="h-4 w-4 mr-2 " />
+              <div className="flex text-md font-semibold text-center ml-4 justify-between gap-12">
+                {message.message.file.url.includes(".png") ||
+                message.message.file.url.includes(".jpg") ||
+                message.message.file.url.includes(".jpeg") ? (
+                  message.message.caption
+                ) : (
+                  <p className="truncate mr-6">{message.message.file.original_filename + ".raw" }</p>
+                )}
+              </div>
             ) : null}
-            {moment(message.updatedAt).add("TIME_ZONE", "hours").fromNow(true)}{" "}
-            ago
-          </p>
+            <p className="w-full text-[10px] text-right">
+              {moment(message.updatedAt)
+                .add("TIME_ZONE", "hours")
+                .fromNow(true)}{" "}
+              ago
+            </p>
+          </div>
         </div>
       </div>
     </>

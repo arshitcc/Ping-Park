@@ -6,121 +6,61 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Message from "./Message";
-import type { IChat, IMessage, IUser } from "@/types";
+import type { IChat, IUser } from "@/types";
+import { useQuery } from "@tanstack/react-query";
+import { getMessages } from "@/api/messages.api";
 
-export default function ChatSection() {
 
-  const [loadingMessages, setLoadingMessages] = useState(false);
+interface ChatSectionProps {
+  chatId : string | null
+}
+
+export default function ChatSection({ chatId }: ChatSectionProps) {
+
+  const currentUser: IUser = {
+    avatar: {
+      publicId: "ping-park",
+      url: "https://res.cloudinary.com/arshitcc/image/upload/v1744284070/ping-park.png",
+    },
+    email: "forrest45@hotmail.com",
+    name: "Kathryn Rutherford",
+    _id: "67fbbd7bd7c7da3459a947ff",
+  };
+
+  if(!chatId) {
+    return null;
+  }
+
+  const { data : response, isLoading, isError, error } = useQuery({
+    queryKey: ['chat', chatId],
+    queryFn: () => getMessages(chatId)
+  });
+
   const [isTyping, setIsTyping] = useState(false);
   const [message, setMessage] = useState("");
 
-  const sampleChat = {
-    _id: "1",
-    chatName: "John Doe",
-    isGroupChat: false,
-    participantIds: ["user1", "user2"],
-    latestMessageId: "msg1",
-    latestMessage: {
-      _id: "msg1",
-      senderId: "user2",
-      message: "Hey, how's it going?",
-      chatId: "1",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      readBy: [],
-      seenBy: [],
-      sender: {
-        _id: "user2",
-        name: "John Doe",
-        email: "john@example.com",
-        avatar: {
-          publicId: "avatar1",
-          url: "https://gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50?s=400&d=robohash&r=x",
-        },
-      },
-    },
-    participants: [],
-    messages: [],
-    admin: "user1",
-    avatar: {
-      publicId: "avatar1",
-      url: "https://gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50?s=400&d=robohash&r=x",
-    },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
 
-  // Sample messages
-  const sampleMessages: IMessage[] = [
-    {
-      _id: "msg1",
-      senderId: "user2",
-      message: "Hey, how's it going?",
-      chatId: "1",
-      createdAt: new Date(Date.now() - 1000 * 60 * 30),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 30),
-      readBy: [],
-      seenBy: [],
-      sender: {
-        _id: "user2",
-        name: "John Doe",
-        email: "john@example.com",
-        avatar: {
-          publicId: "avatar1",
-          url: "https://gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50?s=400&d=robohash&r=x",
-        },
-      },
-    },
-    {
-      _id: "msg2",
-      senderId: "user1",
-      message: "I'm doing well, thanks for asking! How about you?",
-      chatId: "1",
-      createdAt: new Date(Date.now() - 1000 * 60 * 25),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 25),
-      readBy: [],
-      seenBy: [],
-      sender: {
-        _id: "user1",
-        name: "Current User",
-        email: "me@example.com",
-        avatar: {
-          publicId: "avatar2",
-          url: "https://gravatar.com/avatar/1c8e8a6e8d1fe52b782b280909abeb38?s=400&d=robohash&r=x",
-        },
-      },
-    },
-    {
-      _id: "msg3",
-      senderId: "user2",
-      message:
-        "I've been working on that project we discussed. Made some good progress!",
-      chatId: "1",
-      createdAt: new Date(Date.now() - 1000 * 60 * 20),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 20),
-      readBy: [],
-      seenBy: [],
-      sender: {
-        _id: "user2",
-        name: "John Doe",
-        email: "john@example.com",
-        avatar: {
-          publicId: "avatar1",
-          url: "https://gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50?s=400&d=robohash&r=x",
-        },
-      },
-    },
-  ];
+  if(isLoading) {
+    return (
+      <>
+        Loading...
+      </>
+    )
+  }
 
-  const currentUser: IUser = {
-    _id: "user1",
-    name: "Current User",
-    email: "me@example.com",
-    avatar: {
-      publicId: "avatar2",
-      url: "https://gravatar.com/avatar/1c8e8a6e8d1fe52b782b280909abeb38?s=400&d=robohash&r=x",
-    },
-  };
+  if(isError || !response) {
+    return (
+      <>
+        Error: {error}
+      </>
+    )
+  }
+
+  const { isGroupChat, avatar, participants, messages, chatName } : IChat = response.data.data;
+
+  let realChatName;
+  if (isGroupChat) realChatName = chatName;
+  else realChatName = participants?.find((p : IUser) => p._id !== currentUser._id)?.name;
 
   return (
     <div className="flex flex-col h-full">
@@ -128,17 +68,17 @@ export default function ChatSection() {
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage
-              src={sampleChat.avatar.url || "/placeholder.svg"}
-              alt={sampleChat.chatName}
+              src={avatar.url || "/placeholder.svg"}
+              alt={realChatName}
             />
             <AvatarFallback>
-              {sampleChat.chatName.charAt(0).toUpperCase()}
+              {realChatName && realChatName.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-medium">{sampleChat.chatName}</h3>
+            <h3 className="font-medium">{realChatName}</h3>
             <p className="text-xs text-muted-foreground">
-              {sampleChat.isGroupChat ? "Group · 3 participants" : "Online"}
+              {isGroupChat ? "Group · 3 participants" : "Online"}
             </p>
           </div>
         </div>
@@ -148,7 +88,7 @@ export default function ChatSection() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4">
-        {loadingMessages ? (
+        {isLoading ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -165,12 +105,12 @@ export default function ChatSection() {
               </div>
             )}
 
-            {sampleMessages.map((msg) => (
+            {messages.map((msg) => (
               <Message
                 key={msg._id}
                 message={msg}
                 isCurrentUserMessage={msg.sender._id === currentUser._id}
-                isGroupChat={sampleChat.isGroupChat}
+                isGroupChat={isGroupChat}
               />
             ))}
           </>

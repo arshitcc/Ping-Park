@@ -19,7 +19,7 @@ router
   .route("/new-chat")
   .post(upload.single("groupPhoto"), authenticateUser, createChat);
 
-router.route("/get-my-chats").get(authenticateUser, getMyChats);
+router.route("/").get(authenticateUser, getMyChats);
 
 router
   .route("/:chatId")

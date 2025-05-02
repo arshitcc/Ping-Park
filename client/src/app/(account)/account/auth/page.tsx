@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { login, signup } from "@/api";
+import { login, signup } from "@/api/users.api";
 import { AxiosError } from "axios";
 import { useForm } from "react-hook-form";
 import {
@@ -74,16 +74,12 @@ function page() {
     const logining = toast.loading("Authenticating Credentials");
     try {
       const response = await login(data);
-      toast.success("YOYO",{
-        icon : <UserCheck2Icon/>
-      });
       if (response.data.success) {
         toast.success("Authentical Successful");
         router.replace("/chats");
       }
       else toast.error(response.data.message);
     } catch (err: AxiosError | any) {
-      console.log(err);
       toast.error(err.response?.data?.message || "Something went wrong");
     } finally {
       toast.dismiss(logining);
@@ -102,7 +98,6 @@ function page() {
       }
       else toast.error(response.data.message);
     } catch (err: AxiosError | any) {
-      console.log(err);
       toast.error(err.response?.data?.message || "Something went wrong");
     } finally {
       toast.dismiss(registering);
