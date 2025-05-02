@@ -1,15 +1,35 @@
 "use client";
 
-import { PaperclipIcon, SearchIcon, SendIcon, SmileIcon } from "lucide-react";
+import {
+  LucideTrash2,
+  LucideX,
+  PaperclipIcon,
+  SearchIcon,
+  SendIcon,
+  SmileIcon,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Message from "./Message";
-import type { IChat, IUser } from "@/types";
-import { useQuery } from "@tanstack/react-query";
-import { getMessages } from "@/api/messages.api";
-
+import type { IChat, IMessage, IUser } from "@/types";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { deleteMessages, getMessages } from "@/api/messages.api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../ui/alert-dialog";
+import { AxiosResponse } from "axios";
+import { toast } from "sonner";
+import { Skeleton } from "../ui/skeleton";
 
 interface ChatSectionProps {
   chatId : string | null
@@ -31,32 +51,66 @@ export default function ChatSection({ chatId }: ChatSectionProps) {
     return null;
   }
 
-  const { data : response, isLoading, isError, error } = useQuery({
-    queryKey: ['chat', chatId],
-    queryFn: () => getMessages(chatId)
+  const queryClient = useQueryClient();
+
+  const { data: response, isLoading, isError, error, } = useQuery({
+    queryKey: ["chat", chatId],
+    queryFn: () => getMessages(chatId),
+    placeholderData : keepPreviousData
+  });
+
+  const { mutate, mutateAsync } = useMutation({
+    mutationFn : ({chatId, toBeDeletedMessages} : {chatId : string, toBeDeletedMessages : string[]}) => deleteMessages(chatId, toBeDeletedMessages),
+    onSuccess : ({data}, id) => {
+      queryClient.setQueryData(["chat", chatId], (staleData : AxiosResponse) => {
+       let updatedMessages = staleData.data.data.messages.filter((msg : IMessage) => !toBeDeletedMessages.includes(msg._id));
+       setToBeDeletedMessages([]);
+       toast.success("Messages deleted successfully");
+       return {...staleData, data : {...staleData.data, data : {...staleData.data.data, messages : updatedMessages}}};
+      });
+    }
   });
 
   const [isTyping, setIsTyping] = useState(false);
   const [message, setMessage] = useState("");
+  const [toBeDeletedMessages, setToBeDeletedMessages] = useState<string[]>([]);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
-
-  if(isLoading) {
+  if (isLoading) {
     return (
-      <>
-        Loading...
-      </>
+      <div className="flex flex-col gap-6 h-full">
+        <div className="flex items-center gap-3 p-4 border-b border-border bg-background sticky top-0 z-10">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div className="space-y-1">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4">
+          {[...Array(5)].map((_, idx) => (
+            <div key={idx} className={`flex ${idx % 2 === 0 ? "justify-start" : "justify-end"}`}>
+              <Skeleton className="w-40 h-6 rounded-lg" />
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 border-t border-border bg-background">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-10 flex-1 rounded-lg" />
+            <Skeleton className="h-10 w-10 rounded-full" />
+          </div>
+        </div>
+      </div>
     )
   }
 
-  if(isError || !response) {
-    return (
-      <>
-        Error: {error}
-      </>
-    )
+  if (isError || !response) {
+    return <>Error: {error}</>;
   }
 
-  const { isGroupChat, avatar, participants, messages, chatName } : IChat = response.data.data;
+  const { isGroupChat, avatar, participants, messages, chatName }: IChat = response.data.data;
 
   let realChatName;
   if (isGroupChat) realChatName = chatName;
@@ -101,7 +155,7 @@ export default function ChatSection({ chatId }: ChatSectionProps) {
                   <span className="animate-bounce" style={{ animationDelay: "0.2s" }} > ● </span>
                   <span className="animate-bounce" style={{ animationDelay: "0.4s" }} > ● </span>
                 </div>
-                <span>John is typing...</span>
+                <span>{currentUser.name} is typing...</span>
               </div>
             )}
 
@@ -111,6 +165,10 @@ export default function ChatSection({ chatId }: ChatSectionProps) {
                 message={msg}
                 isCurrentUserMessage={msg.sender._id === currentUser._id}
                 isGroupChat={isGroupChat}
+                openDeleteModal={openDeleteModal}
+                setOpenDeleteModal={setOpenDeleteModal}
+                toBeDeletedMessages={toBeDeletedMessages}
+                setToBeDeletedMessages={setToBeDeletedMessages}
               />
             ))}
           </>
@@ -118,31 +176,71 @@ export default function ChatSection({ chatId }: ChatSectionProps) {
       </div>
 
       <div className="p-4 border-t border-border bg-background">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <PaperclipIcon className="h-5 w-5" />
-          </Button>
+        {openDeleteModal ? (
+          <div className="flex items-center justify-end gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant={"destructive"}  disabled={toBeDeletedMessages.length === 0} >
+                  <LucideTrash2 />
+                  Delete Selected
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Messages?</AlertDialogTitle>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => {
+                    // mutate({ chatId,  toBeDeletedMessages}) ; // for without toast, its a general way
+                    toast.promise(mutateAsync({ chatId,  toBeDeletedMessages }), {
+                      loading: "Deleting...",
+                      success: "Messages deleted",
+                      error: "Error deleting messages",
+                    })
+                    setOpenDeleteModal(false);
+                  }}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
-          <div className="relative flex-1">
-            <Input
-              placeholder="Type a message..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="pr-10 focus-visible:ring-1"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
-            >
-              <SmileIcon className="h-5 w-5" />
+            <Button variant={"outline"} onClick={() => {
+              setToBeDeletedMessages([]);
+              setOpenDeleteModal(false)
+            }}>
+              <LucideX />
+              Cancel
             </Button>
           </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            
+            <Button variant="ghost" size="icon" className="relative rounded-full">
+              <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer"/>
+              <PaperclipIcon className="h-5 w-5" />
+            </Button>
 
-          <Button size="icon" className="rounded-full">
-            <SendIcon className="h-5 w-5" />
-          </Button>
-        </div>
+            <div className="relative flex-1">
+              <Input
+                placeholder="Type a message..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="pr-10 focus-visible:ring-1"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
+              >
+                <SmileIcon className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <Button size="icon" className="rounded-full">
+              <SendIcon className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
