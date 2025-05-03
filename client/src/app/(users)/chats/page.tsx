@@ -3,7 +3,6 @@
 import ChatSection from "@/components/chat/ChatSection";
 import ChatsList from "@/components/chats/ChatsList";
 import SettingsPanel from "@/components/settings/Settings";
-import { IChat } from "@/types";
 import { useState } from "react";
 
 function page() {

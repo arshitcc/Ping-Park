@@ -16,14 +16,19 @@ const changeAvatar = (data : FormData) => {
     return apiClient.post("/users/change-avatar", data);
 };
 
-const getUsers = () => {
+const getUsers = async () => {
     return apiClient.get("/users");
 };
+
+const getUsersBySearch = (data : { search : string}) => {
+    return apiClient.post("/users/search-users", data);
+}
 
 export {
     signup,
     login,
     changePassword,
     changeAvatar,
-    getUsers
+    getUsers,
+    getUsersBySearch
 }

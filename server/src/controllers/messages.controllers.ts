@@ -69,20 +69,20 @@ const sendMessages = asyncHandler(async (req : CustomRequest, res : Response) =>
         throw new ApiError(400, "Chat not found");
     }
 
-    const { text, content } : { text : string, content : string } = req.body;
+    const { captionText, message } : { captionText : string, message : string } = req.body;
     const attachments = req.files as Express.Multer.File[];
 
-    const messages = text?.trim().split(',');
+    const captions = captionText?.trim().split(',');
     let newMessages : IMessage[] = [];
 
-    if(messages && attachments && attachments.length && messages.length){
+    if(captions && attachments && attachments.length && captions.length){
         for(let idx = 0; idx<attachments.length; idx++){
             const file = await uploadFile(attachments[idx].path);
-            const message = await Message.create({
+            const newMessage = await Message.create({
                 chatId,
                 senderId : req.user._id,
                 message : {
-                    caption : messages[idx].trim(),
+                    caption : captions[idx].trim(),
                     file : {
                         publicId : file.public_id,
                         url : file.url,
@@ -91,17 +91,17 @@ const sendMessages = asyncHandler(async (req : CustomRequest, res : Response) =>
                     }
                 }
             }); 
-            newMessages.push(message);
+            newMessages.push(newMessage);
         }
     }
     else {
-        if(!content.trim()) throw new ApiError(400, "Message cannot be empty");
-        const message = await Message.create({
+        if(!message.trim()) throw new ApiError(400, "Message cannot be empty");
+        const newMessage = await Message.create({
             chatId,
             senderId : req.user._id,
-            message : content,
+            message,
         });
-        newMessages.push(message);
+        newMessages.push(newMessage);
     }
 
     const updatedTheChat = await Chat.findOneAndUpdate(

@@ -50,7 +50,7 @@ export default function Chat({ chat, isActive, unreadCount }: ChatItemProps) {
       )}
     >
       <Avatar className="h-12 w-12 flex-shrink-0">
-        <AvatarImage src={chat.avatar.url} alt={chatName || "Ping-Park"} />
+        <AvatarImage src={chat?.avatar?.url || "https://gravatar.com/avatar/30db2a0a8080393d987b87e6d00ba93c?s=400&d=retro&r=x"} alt={chatName || "Ping-Park"} />
         <AvatarFallback>{getInitials(chatName || "Ping Park")}</AvatarFallback>
       </Avatar>
 
